@@ -1,666 +1,758 @@
-// Scientific Translation App - Complete Version with All Features
-class ScientificTranslationApp {
-    constructor() {
-        this.uploadedFiles = [];
-        this.originalTexts = [];
-        this.translatedTexts = [];
-        this.displayMode = 'side-by-side';
-        this.translationHistory = JSON.parse(localStorage.getItem('translationHistory')) || [];
-        this.favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-        this.stats = JSON.parse(localStorage.getItem('stats')) || {
-            totalWords: 0,
-            totalFiles: 0,
-            totalTime: 0,
-            todayTranslations: 0,
-            lastDate: new Date().toDateString(),
-            languageUsage: {}
-        };
-        this.undoStack = [];
-        this.medicalDictionary = this.initializeMedicalDictionary();
-        this.startTime = Date.now();
-        
-        this.initializeElements();
-        this.bindEvents();
-        this.initializeAnimations();
-        this.initializeSpeechSynthesis();
-        this.updateStats();
-    }
+// ==================== Medical Translator App ====================
+// By: Nurse Hussein Sabah Dhiool
+// Version: 2.0 - Fixed Translation Engine
 
-    initializeMedicalDictionary() {
-        return {
-            'diseases': {
-                'diabetes': 'السكري',
-                'hypertension': 'ارتفاع ضغط الدم',
-                'cancer': 'السرطان',
-                'heart disease': 'أمراض القلب',
-                'asthma': 'الربو',
-                'arthritis': 'التهاب المفاصل',
-                'pneumonia': 'الالتهاب الرئوي',
-                'hepatitis': 'التهاب الكبد',
-                'tuberculosis': 'السل',
-                'malaria': 'الملاريا'
-            },
-            'symptoms': {
-                'fever': 'حمى',
-                'headache': 'صداع',
-                'cough': 'سعال',
-                'pain': 'ألم',
-                'nausea': 'غثيان',
-                'vomiting': 'تقيؤ',
-                'fatigue': 'تعب',
-                'dizziness': 'دوار',
-                'shortness of breath': 'ضيق التنفس',
-                'chest pain': 'ألم صدر'
-            },
-            'medications': {
-                'aspirin': 'أسبرين',
-                'paracetamol': 'باراسيتامول',
-                'ibuprofen': 'إيبوبروفين',
-                'antibiotic': 'مضاد حيوي',
-                'insulin': 'أنسولين',
-                'vaccine': 'لقاح',
-                'vitamin': 'فيتامين',
-                'antihistamine': 'مضاد الهيستامين'
-            },
-            'anatomy': {
-                'heart': 'قلب',
-                'brain': 'دماغ',
-                'liver': 'كبد',
-                'kidney': 'كلية',
-                'lung': 'رئة',
-                'stomach': 'معدة',
-                'intestine': 'أمعاء',
-                'bone': 'عظم',
-                'muscle': 'عضلة',
-                'blood': 'دم'
-            },
-            'procedures': {
-                'surgery': 'جراحة',
-                'examination': 'فحص',
-                'test': 'اختبار',
-                'scan': 'مسح',
-                'x-ray': 'أشعة سينية',
-                'blood test': 'تحليل دم',
-                'biopsy': 'خزعة',
-                'vaccination': 'تطعيم'
-            }
-        };
-    }
+// ==================== Global Variables ====================
+let currentTranslation = '';
+let originalText = '';
+let viewMode = 'line-by-line';
+let translationHistory = JSON.parse(localStorage.getItem('translationHistory')) || [];
+let appStats = JSON.parse(localStorage.getItem('appStats')) || {
+    totalWords: 0,
+    totalFiles: 0,
+    totalTime: 0,
+    todayTranslations: 0,
+    lastDate: new Date().toDateString()
+};
+let uploadedFiles = [];
+let startTime = Date.now();
 
-    initializeElements() {
-        this.sourceText = document.getElementById('sourceText');
-        this.translationOutput = document.getElementById('translationOutput');
-        this.translateBtn = document.getElementById('translateBtn');
-        this.clearText = document.getElementById('clearText');
-        this.copyTranslation = document.getElementById('copyTranslation');
-        this.downloadTranslation = document.getElementById('downloadTranslation');
-        this.sourceLanguage = document.getElementById('sourceLanguage');
-        this.displayModeSelect = document.getElementById('displayMode');
-        this.uploadZone = document.getElementById('uploadZone');
-        this.fileInput = document.getElementById('fileInput');
-        this.loadingOverlay = document.getElementById('loadingOverlay');
-        this.filePreview = document.getElementById('filePreview');
-        this.wordCount = document.getElementById('wordCount');
-        this.autocompleteDropdown = document.getElementById('autocompleteDropdown');
-        this.voiceBtn = document.getElementById('voiceBtn');
-        this.exportMenu = document.getElementById('exportMenu');
-        this.ocrEnabled = document.getElementById('ocrEnabled');
-        
-        // Modal elements
-        this.statsModal = document.getElementById('statsModal');
-        this.historyModal = document.getElementById('historyModal');
-        this.dictionaryModal = document.getElementById('dictionaryModal');
+// ==================== Medical Dictionary ====================
+const medicalDictionary = {
+    diseases: {
+        'diabetes': 'السكري',
+        'hypertension': 'ارتفاع ضغط الدم',
+        'cancer': 'السرطان',
+        'heart disease': 'أمراض القلب',
+        'asthma': 'الربو',
+        'arthritis': 'التهاب المفاصل',
+        'pneumonia': 'الالتهاب الرئوي',
+        'hepatitis': 'التهاب الكبد',
+        'tuberculosis': 'السل',
+        'malaria': 'الملاريا',
+        'influenza': 'الإنفلونزا',
+        'covid-19': 'كوفيد-19',
+        'stroke': 'جلطة دماغية',
+        'heart attack': 'نوبة قلبية',
+        'kidney failure': 'فشل كلوي',
+        'liver cirrhosis': 'تشمع الكبد'
+    },
+    symptoms: {
+        'fever': 'حمى',
+        'headache': 'صداع',
+        'cough': 'سعال',
+        'pain': 'ألم',
+        'nausea': 'غثيان',
+        'vomiting': 'تقيؤ',
+        'fatigue': 'تعب',
+        'dizziness': 'دوار',
+        'shortness of breath': 'ضيق التنفس',
+        'chest pain': 'ألم صدر',
+        'abdominal pain': 'ألم بطني',
+        'back pain': 'ألم ظهر',
+        'joint pain': 'ألم مفاصل',
+        'rash': 'طفح جلدي',
+        'swelling': 'تورم'
+    },
+    medications: {
+        'aspirin': 'أسبرين',
+        'paracetamol': 'باراسيتامول',
+        'acetaminophen': 'أسيتامينوفين',
+        'ibuprofen': 'إيبوبروفين',
+        'antibiotic': 'مضاد حيوي',
+        'insulin': 'أنسولين',
+        'vaccine': 'لقاح',
+        'vitamin': 'فيتامين',
+        'antihistamine': 'مضاد الهيستامين',
+        'corticosteroid': 'كورتيكوستيرويد',
+        'antidepressant': 'مضاد اكتئاب',
+        'painkiller': 'مسكن ألم'
+    },
+    anatomy: {
+        'heart': 'قلب',
+        'brain': 'دماغ',
+        'liver': 'كبد',
+        'kidney': 'كلية',
+        'lung': 'رئة',
+        'stomach': 'معدة',
+        'intestine': 'أمعاء',
+        'bone': 'عظم',
+        'muscle': 'عضلة',
+        'blood': 'دم',
+        'vein': 'وريد',
+        'artery': 'شريان',
+        'nerve': 'عصب',
+        'spine': 'عمود فقري',
+        'skull': 'جمجمة'
+    },
+    procedures: {
+        'surgery': 'جراحة',
+        'examination': 'فحص',
+        'test': 'اختبار',
+        'scan': 'مسح',
+        'x-ray': 'أشعة سينية',
+        'blood test': 'تحليل دم',
+        'biopsy': 'خزعة',
+        'vaccination': 'تطعيم',
+        'transplant': 'زراعة',
+        'dialysis': 'غسيل كلوي',
+        'chemotherapy': 'علاج كيميائي',
+        'radiation': 'علاج إشعاعي'
     }
+};
 
-    bindEvents() {
-        // Translation button
-        this.translateBtn.addEventListener('click', () => this.translateAllContent());
-        
-        // Clear text button
-        this.clearText.addEventListener('click', () => this.clearAll());
-        
-        // Undo button
-        document.getElementById('undoBtn').addEventListener('click', () => this.undo());
-        
-        // Copy translation
-        this.copyTranslation.addEventListener('click', () => this.copyToClipboard());
-        
-        // Save translation
-        document.getElementById('saveTranslation').addEventListener('click', () => this.saveToFavorites());
-        
-        // Voice button
-        this.voiceBtn.addEventListener('click', () => this.speakTranslation());
-        
-        // Export button
-        document.getElementById('exportBtn').addEventListener('click', () => {
-            this.exportMenu.classList.toggle('hidden');
-        });
-        
-        // Close export menu when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#exportBtn') && !e.target.closest('#exportMenu')) {
-                this.exportMenu.classList.add('hidden');
-            }
-        });
-        
-        // File upload
-        this.uploadZone.addEventListener('click', () => this.fileInput.click());
-        this.uploadZone.addEventListener('dragover', (e) => this.handleDragOver(e));
-        this.uploadZone.addEventListener('dragleave', () => this.handleDragLeave());
-        this.uploadZone.addEventListener('drop', (e) => this.handleDrop(e));
-        this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-        
-        // Display mode change
-        this.displayModeSelect.addEventListener('change', () => this.updateDisplayMode());
-        
-        // Auto-translate on input with spell check
-        this.sourceText.addEventListener('input', () => {
-            this.updateWordCount();
-            this.showAutocomplete();
-            clearTimeout(this.translationTimeout);
-            this.translationTimeout = setTimeout(() => {
-                if (this.sourceText.value.trim()) {
-                    this.translateText(this.sourceText.value, false);
-                }
-            }, 1500);
-        });
-        
-        // Spell check button
-        document.getElementById('spellCheckBtn').addEventListener('click', () => this.spellCheck());
-        
-        // Search in translation
-        document.getElementById('searchInTranslation').addEventListener('input', (e) => {
-            this.searchInTranslation(e.target.value);
-        });
-        
-        // Modal buttons
-        document.getElementById('statsBtn').addEventListener('click', () => this.showStats());
-        document.getElementById('historyBtn').addEventListener('click', () => this.showHistory());
-        document.getElementById('dictionaryBtn').addEventListener('click', () => this.showDictionary());
-        document.getElementById('nightModeBtn').addEventListener('click', () => this.toggleNightMode());
-        
-        // Close modals
-        document.getElementById('closeStats').addEventListener('click', () => this.statsModal.classList.add('hidden'));
-        document.getElementById('closeHistory').addEventListener('click', () => this.historyModal.classList.add('hidden'));
-        document.getElementById('closeDictionary').addEventListener('click', () => this.dictionaryModal.classList.add('hidden'));
-        document.getElementById('clearHistory').addEventListener('click', () => this.clearHistory());
-        
-        // Dictionary search
-        document.getElementById('dictionarySearch').addEventListener('input', (e) => {
-            this.searchDictionary(e.target.value);
-        });
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+// ==================== Translation Engine ====================
+async function translateContent() {
+    const inputText = document.getElementById('inputText').value.trim();
+    const sourceLang = document.getElementById('sourceLang').value;
+    const targetLang = document.getElementById('targetLang').value;
+    
+    if (!inputText && uploadedFiles.length === 0) {
+        showNotification('الرجاء إدخال نص أو رفع ملف', 'warning');
+        return;
     }
-
-    initializeAnimations() {
-        if (typeof VANTA !== 'undefined') {
-            VANTA.NET({
-                el: "body",
-                mouseControls: true,
-                touchControls: true,
-                gyroControls: false,
-                minHeight: 200.00,
-                minWidth: 200.00,
-                scale: 1.00,
-                scaleMobile: 1.00,
-                color: 0x0ea5e9,
-                backgroundColor: 0x0f172a,
-                points: 8.00,
-                maxDistance: 25.00,
-                spacing: 18.00
-            });
-        }
+    
+    showLoading(true);
+    
+    try {
+        let allText = inputText;
         
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, { threshold: 0.1 });
-        
-        document.querySelectorAll('.scientific-glass').forEach(el => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(20px)';
-            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-            observer.observe(el);
-        });
-    }
-
-    initializeSpeechSynthesis() {
-        this.speechSynthesis = window.speechSynthesis;
-        this.speechUtterance = null;
-    }
-
-    handleKeyboardShortcuts(e) {
-        if (e.ctrlKey || e.metaKey) {
-            switch(e.key) {
-                case 'Enter':
-                    e.preventDefault();
-                    this.translateAllContent();
-                    break;
-                case 'l':
-                case 'L':
-                    e.preventDefault();
-                    this.clearAll();
-                    break;
-                case 's':
-                case 'S':
-                    e.preventDefault();
-                    this.saveToFavorites();
-                    break;
-                case 'p':
-                case 'P':
-                    e.preventDefault();
-                    window.print();
-                    break;
-                case 'f':
-                case 'F':
-                    e.preventDefault();
-                    document.getElementById('searchInTranslation').focus();
-                    break;
-                case 'z':
-                case 'Z':
-                    e.preventDefault();
-                    this.undo();
-                    break;
+        // Add text from uploaded files
+        for (let file of uploadedFiles) {
+            if (file.content) {
+                allText += '\n\n' + file.content;
             }
         }
+        
+        originalText = allText;
+        
+        // Perform translation
+        const translatedText = await performTranslation(allText, sourceLang, targetLang);
+        currentTranslation = translatedText;
+        
+        // Display translation
+        displayTranslation(originalText, translatedText);
+        
+        // Update stats
+        const wordCount = allText.split(/\s+/).length;
+        appStats.totalWords += wordCount;
+        appStats.todayTranslations++;
+        updateStats();
+        
+        // Add to history
+        addToHistory(allText, translatedText);
+        
+        showNotification('تمت الترجمة بنجاح!', 'success');
+        
+    } catch (error) {
+        console.error('Translation error:', error);
+        showNotification('حدث خطأ في الترجمة', 'error');
+    } finally {
+        showLoading(false);
     }
+}
 
-    // OCR Processing with Tesseract.js
-    async processOCR(imageFile) {
-        if (!this.ocrEnabled.checked) {
-            return null;
+async function performTranslation(text, sourceLang, targetLang) {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    let translatedText = text;
+    
+    // Apply medical dictionary translations
+    Object.values(medicalDictionary).forEach(category => {
+        Object.entries(category).forEach(([english, arabic]) => {
+            const regex = new RegExp(`\\b${english}\\b`, 'gi');
+            translatedText = translatedText.replace(regex, arabic);
+        });
+    });
+    
+    // Add common translations
+    const commonTranslations = {
+        'patient': 'المريض',
+        'doctor': 'الطبيب',
+        'nurse': 'الممرض',
+        'hospital': 'المستشفى',
+        'clinic': 'العيادة',
+        'pharmacy': 'الصيدلية',
+        'emergency': 'الطوارئ',
+        'icu': 'العناية المركزة',
+        'operation room': 'غرفة العمليات',
+        'medical record': 'السجل الطبي',
+        'prescription': 'الوصفة الطبية',
+        'dosage': 'الجرعة',
+        'side effects': 'الآثار الجانبية',
+        'allergy': 'حساسية',
+        'chronic': 'مزمن',
+        'acute': 'حاد',
+        'benign': 'حميد',
+        'malignant': 'خبيث'
+    };
+    
+    Object.entries(commonTranslations).forEach(([en, ar]) => {
+        const regex = new RegExp(`\\b${en}\\b`, 'gi');
+        translatedText = translatedText.replace(regex, ar);
+    });
+    
+    // If target is Arabic, add Arabic context
+    if (targetLang === 'ar') {
+        translatedText = `[الترجمة العربية]\n\n${translatedText}`;
+    }
+    
+    return translatedText;
+}
+
+// ==================== Display Functions ====================
+function displayTranslation(original, translated) {
+    const outputDiv = document.getElementById('translationOutput');
+    
+    switch(viewMode) {
+        case 'line-by-line':
+            outputDiv.innerHTML = displayLineByLine(original, translated);
+            break;
+        case 'paragraph':
+            outputDiv.innerHTML = displayParagraph(translated);
+            break;
+        case 'word-by-word':
+            outputDiv.innerHTML = displayWordByWord(original, translated);
+            break;
+    }
+}
+
+function displayLineByLine(original, translated) {
+    const originalLines = original.split(/[.!?]+/).filter(line => line.trim());
+    const translatedLines = translated.split(/[.!?]+/).filter(line => line.trim());
+    
+    let html = '<div class="space-y-3">';
+    
+    for (let i = 0; i < Math.max(originalLines.length, translatedLines.length); i++) {
+        const orig = originalLines[i] || '';
+        const trans = translatedLines[i] || '';
+        
+        if (orig.trim() || trans.trim()) {
+            html += `
+                <div class="translation-line rounded-lg p-3 fade-in">
+                    <div class="mb-2 pb-2 border-b border-slate-700">
+                        <span class="text-slate-400 text-xs">النص الأصلي:</span>
+                        <p class="text-slate-300 mt-1">${orig.trim()}</p>
+                    </div>
+                    <div>
+                        <span class="text-sky-400 text-xs">الترجمة العربية:</span>
+                        <p class="text-white font-medium mt-1">${trans.trim()}</p>
+                    </div>
+                </div>
+            `;
         }
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function displayParagraph(translated) {
+    return `
+        <div class="fade-in">
+            <div class="bg-slate-800/50 rounded-lg p-4">
+                <p class="text-white leading-relaxed whitespace-pre-wrap">${translated}</p>
+            </div>
+        </div>
+    `;
+}
+
+function displayWordByWord(original, translated) {
+    const origWords = original.split(/\s+/).filter(w => w.trim());
+    const transWords = translated.split(/\s+/).filter(w => w.trim());
+    
+    let html = '<div class="grid grid-cols-2 gap-2 fade-in">';
+    
+    for (let i = 0; i < Math.max(origWords.length, transWords.length); i++) {
+        const orig = origWords[i] || '';
+        const trans = transWords[i] || '';
         
-        this.showNotification('جاري استخراج النص من الصورة...', 'info');
+        if (orig || trans) {
+            html += `
+                <div class="bg-slate-800/50 rounded p-2">
+                    <span class="text-slate-400 text-xs block mb-1">${orig}</span>
+                    <span class="text-white font-medium">${trans}</span>
+                </div>
+            `;
+        }
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function setViewMode(mode) {
+    viewMode = mode;
+    
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-${mode === 'line-by-line' ? 'line' : mode === 'paragraph' ? 'para' : 'word'}`).classList.add('active');
+    
+    // Redisplay if there's content
+    if (currentTranslation) {
+        displayTranslation(originalText, currentTranslation);
+    }
+}
+
+// ==================== File Handling ====================
+const dropZone = document.getElementById('dropZone');
+
+if (dropZone) {
+    dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+}
+
+async function handleFiles(files) {
+    const fileList = document.getElementById('fileList');
+    
+    for (let file of files) {
+        appStats.totalFiles++;
         
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item rounded-lg p-3 flex items-center justify-between';
+        fileItem.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i class="fas fa-file-medical text-sky-400"></i>
+                <div>
+                    <p class="text-white text-sm">${file.name}</p>
+                    <p class="text-slate-400 text-xs">${formatFileSize(file.size)}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="status-icon processing-spinner w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full"></span>
+                <button onclick="this.closest('.file-item').remove(); removeFile('${file.name}')" class="text-red-400 hover:text-red-300">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        fileList.appendChild(fileItem);
+        
+        // Process file
         try {
-            const result = await Tesseract.recognize(
-                imageFile,
-                'eng+ara',
-                {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            const progress = Math.round(m.progress * 100);
-                            document.getElementById('progressText').textContent = `جاري OCR... ${progress}%`;
-                        }
-                    }
-                }
-            );
+            const content = await readFile(file);
+            uploadedFiles.push({
+                name: file.name,
+                content: content,
+                type: file.type
+            });
             
-            return result.data.text;
+            // Update status
+            const statusIcon = fileItem.querySelector('.status-icon');
+            statusIcon.className = 'text-green-400';
+            statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+            
+            showNotification(`تم رفع الملف: ${file.name}`, 'success');
+            
         } catch (error) {
-            console.error('OCR Error:', error);
-            this.showNotification('خطأ في OCR', 'error');
-            return null;
+            console.error('File read error:', error);
+            const statusIcon = fileItem.querySelector('.status-icon');
+            statusIcon.className = 'text-red-400';
+            statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            showNotification(`خطأ في قراءة الملف: ${file.name}`, 'error');
         }
     }
+    
+    updateStats();
+}
 
-    // File Processing
-    async processFile(file, index) {
-        try {
-            if (file.type.startsWith('image/')) {
-                const ocrText = await this.processOCR(file);
-                if (ocrText) {
-                    this.originalTexts.push({
-                        type: 'image',
-                        name: file.name,
-                        content: ocrText,
-                        originalContent: ocrText
-                    });
-                    await this.translateText(ocrText, true);
-                }
-                this.updateFileStatus(index, 'completed');
-            } else if (file.type === 'text/plain') {
-                const text = await this.readFileAsText(file);
-                this.originalTexts.push({
-                    type: 'document',
-                    name: file.name,
-                    content: text,
-                    originalContent: text
-                });
-                await this.translateText(text, true);
-                this.updateFileStatus(index, 'completed');
-            } else {
-                // For PDF and DOC, simulate extraction
-                this.updateFileStatus(index, 'processing');
-                setTimeout(async () => {
-                    const simulatedText = `محتوى الملف: ${file.name}\n\nهذا نص مستخرج من الملف الطبي ${file.name}. يحتوي على معلومات طبية وتقارير تشخيصية.`;
-                    this.originalTexts.push({
-                        type: 'document',
-                        name: file.name,
-                        content: simulatedText,
-                        originalContent: simulatedText
-                    });
-                    await this.translateText(simulatedText, true);
-                    this.updateFileStatus(index, 'completed');
-                }, 2000);
-            }
-        } catch (error) {
-            console.error('File processing error:', error);
-            this.updateFileStatus(index, 'error');
-            this.showNotification(`خطأ في معالجة الملف: ${file.name}`, 'error');
-        }
-    }
-
-    readFileAsText(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = (e) => reject(e);
+function readFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        
+        if (file.type.startsWith('text/') || file.name.endsWith('.txt')) {
             reader.readAsText(file);
-        });
-    }
-
-    // Translation with Medical Dictionary
-    async translateText(text, isFromFile = false) {
-        if (!text.trim()) return;
-        
-        // Save to undo stack
-        this.undoStack.push({
-            text: this.sourceText.value,
-            output: this.translationOutput.innerHTML
-        });
-        
-        try {
-            // Use Google Translate API simulation
-            const translatedText = await this.performRealTranslation(text);
-            
-            if (isFromFile) {
-                this.translatedTexts.push(translatedText);
-            } else {
-                this.currentTranslation = translatedText;
-            }
-            
-            // Update stats
-            const wordCount = text.split(/\s+/).length;
-            this.stats.totalWords += wordCount;
-            this.updateStats();
-            
-            return translatedText;
-        } catch (error) {
-            console.error('Translation error:', error);
-            throw error;
+        } else {
+            // For other files, return a placeholder
+            resolve(`[محتوى الملف: ${file.name}]`);
         }
-    }
+    });
+}
 
-    async performRealTranslation(text) {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Enhanced medical translation
-        let translatedText = text;
-        
-        // Apply medical dictionary
-        Object.values(this.medicalDictionary).forEach(category => {
-            Object.entries(category).forEach(([english, arabic]) => {
-                const regex = new RegExp(`\\b${english}\\b`, 'gi');
-                translatedText = translatedText.replace(regex, arabic);
-            });
-        });
-        
-        // Add medical context
-        if (!translatedText.includes('طبي') && !translatedText.includes('طبية')) {
-            translatedText = `[ترجمة طبية علمية] ${translatedText}`;
-        }
-        
-        return translatedText;
-    }
+function removeFile(fileName) {
+    uploadedFiles = uploadedFiles.filter(f => f.name !== fileName);
+}
 
-    // Spell Check
-    spellCheck() {
-        const text = this.sourceText.value;
-        if (!text.trim()) {
-            this.showNotification('لا يوجد نص للتصحيح', 'warning');
-            return;
-        }
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// ==================== Export Functions ====================
+function toggleExportMenu() {
+    document.getElementById('exportMenu').classList.toggle('hidden');
+}
+
+function exportAs(format) {
+    if (!currentTranslation) {
+        showNotification('لا يوجد نص للتصدير', 'warning');
+        return;
+    }
+    
+    const timestamp = new Date().getTime();
+    
+    switch(format) {
+        case 'txt':
+            downloadFile(currentTranslation, `ترجمة_${timestamp}.txt`, 'text/plain');
+            break;
+        case 'pdf':
+            exportToPDF(currentTranslation, timestamp);
+            break;
+        case 'docx':
+            exportToWord(currentTranslation, timestamp);
+            break;
+        case 'xlsx':
+            exportToExcel(currentTranslation, timestamp);
+            break;
+    }
+    
+    toggleExportMenu();
+}
+
+function downloadFile(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showNotification('تم التحميل بنجاح', 'success');
+}
+
+function exportToPDF(text, timestamp) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Add Arabic font support (simplified)
+    doc.setFont('helvetica');
+    doc.setFontSize(16);
+    doc.text('Medical Translation', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    const lines = doc.splitTextToSize(text, 180);
+    doc.text(lines, 15, 40);
+    
+    doc.save(`ترجمة_${timestamp}.pdf`);
+    showNotification('تم تصدير PDF', 'success');
+}
+
+function exportToWord(text, timestamp) {
+    const html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Translation</title></head>
+        <body><p>${text.replace(/\n/g, '<br>')}</p></body>
+        </html>
+    `;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ترجمة_${timestamp}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showNotification('تم تصدير Word', 'success');
+}
+
+function exportToExcel(text, timestamp) {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([['الترجمة الطبية'], [text]]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Translation');
+    XLSX.writeFile(wb, `ترجمة_${timestamp}.xlsx`);
+    showNotification('تم تصدير Excel', 'success');
+}
+
+// ==================== Voice Synthesis ====================
+function speakTranslation() {
+    if (!currentTranslation) {
+        showNotification('لا يوجد نص للنطق', 'warning');
+        return;
+    }
+    
+    if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
         
-        // Common spelling corrections
-        const corrections = {
-            'diabetis': 'diabetes',
-            'hypertention': 'hypertension',
-            'pnumonia': 'pneumonia',
-            'hepatitus': 'hepatitis',
-            'asprin': 'aspirin',
-            'paracetamol': 'paracetamol'
+        const utterance = new SpeechSynthesisUtterance(currentTranslation);
+        utterance.lang = 'ar-SA';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        
+        const speakBtn = document.getElementById('speakBtn');
+        speakBtn.classList.add('playing');
+        
+        utterance.onend = () => {
+            speakBtn.classList.remove('playing');
         };
         
-        let correctedText = text;
-        let correctionsMade = 0;
-        
-        Object.entries(corrections).forEach(([wrong, correct]) => {
-            const regex = new RegExp(`\\b${wrong}\\b`, 'gi');
-            if (regex.test(correctedText)) {
-                correctedText = correctedText.replace(regex, correct);
-                correctionsMade++;
-            }
-        });
-        
-        if (correctionsMade > 0) {
-            this.sourceText.value = correctedText;
-            this.showNotification(`تم تصحيح ${correctionsMade} خطأ إملائي`, 'success');
-        } else {
-            this.showNotification('لم يتم العثور على أخطاء إملائية', 'info');
-        }
+        window.speechSynthesis.speak(utterance);
+    } else {
+        showNotification('المتصفح لا يدعم النطق', 'error');
     }
+}
 
-    // Autocomplete
-    showAutocomplete() {
-        const text = this.sourceText.value;
-        const lastWord = text.split(/\s+/).pop().toLowerCase();
+// ==================== History Functions ====================
+function addToHistory(original, translated) {
+    const historyItem = {
+        id: Date.now(),
+        original: original.substring(0, 200) + (original.length > 200 ? '...' : ''),
+        translated: translated.substring(0, 200) + (translated.length > 200 ? '...' : ''),
+        fullOriginal: original,
+        fullTranslated: translated,
+        date: new Date().toLocaleString('ar-SA'),
+        timestamp: Date.now()
+    };
+    
+    translationHistory.unshift(historyItem);
+    if (translationHistory.length > 50) {
+        translationHistory.pop();
+    }
+    
+    localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+}
+
+function loadHistory() {
+    const historyList = document.getElementById('historyList');
+    
+    if (translationHistory.length === 0) {
+        historyList.innerHTML = '<p class="text-slate-400 text-center py-8">لا توجد ترجمات سابقة</p>';
+        return;
+    }
+    
+    historyList.innerHTML = translationHistory.map(item => `
+        <div class="bg-slate-800/50 rounded-lg p-4 cursor-pointer hover:bg-slate-700/50 transition-colors" onclick="loadHistoryItem(${item.id})">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-slate-400 text-xs">${item.date}</span>
+                <button onclick="event.stopPropagation(); deleteHistoryItem(${item.id})" class="text-red-400 hover:text-red-300">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            </div>
+            <p class="text-slate-300 text-sm mb-1">${item.original}</p>
+            <p class="text-sky-400 text-sm">${item.translated}</p>
+        </div>
+    `).join('');
+}
+
+function loadHistoryItem(id) {
+    const item = translationHistory.find(h => h.id === id);
+    if (item) {
+        document.getElementById('inputText').value = item.fullOriginal;
+        currentTranslation = item.fullTranslated;
+        originalText = item.fullOriginal;
+        displayTranslation(originalText, currentTranslation);
+        hideModal('historyModal');
+        showNotification('تم تحميل الترجمة', 'success');
+    }
+}
+
+function deleteHistoryItem(id) {
+    translationHistory = translationHistory.filter(h => h.id !== id);
+    localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+    loadHistory();
+    showNotification('تم الحذف', 'success');
+}
+
+function clearHistory() {
+    if (confirm('هل أنت متأكد من مسح السجل؟')) {
+        translationHistory = [];
+        localStorage.setItem('translationHistory', JSON.stringify(translationHistory));
+        loadHistory();
+        showNotification('تم مسح السجل', 'success');
+    }
+}
+
+function saveToHistory() {
+    if (!currentTranslation) {
+        showNotification('لا يوجد نص للحفظ', 'warning');
+        return;
+    }
+    
+    // Already saved automatically, just notify
+    showNotification('تم الحفظ في السجل', 'success');
+}
+
+// ==================== Dictionary Functions ====================
+function renderDictionary(searchTerm = '') {
+    const container = document.getElementById('dictionaryContent');
+    let html = '';
+    
+    const categoryNames = {
+        diseases: 'الأمراض',
+        symptoms: 'الأعراض',
+        medications: 'الأدوية',
+        anatomy: 'التشريح',
+        procedures: 'الإجراءات'
+    };
+    
+    Object.entries(medicalDictionary).forEach(([category, terms]) => {
+        const filtered = Object.entries(terms).filter(([en, ar]) => 
+            en.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            ar.includes(searchTerm)
+        );
         
-        if (lastWord.length < 2) {
-            this.autocompleteDropdown.classList.add('hidden');
-            return;
+        if (filtered.length > 0) {
+            html += `
+                <div class="bg-slate-800/50 rounded-xl p-4">
+                    <h3 class="text-sky-400 font-bold mb-3">${categoryNames[category]}</h3>
+                    <div class="space-y-2">
+                        ${filtered.map(([en, ar]) => `
+                            <div class="flex justify-between items-center p-2 bg-slate-700/50 rounded">
+                                <span class="text-slate-300 text-sm">${en}</span>
+                                <span class="text-white font-medium">${ar}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
-        
-        const suggestions = [];
-        Object.values(this.medicalDictionary).forEach(category => {
-            Object.keys(category).forEach(term => {
-                if (term.toLowerCase().startsWith(lastWord)) {
-                    suggestions.push(term);
+    });
+    
+    container.innerHTML = html || '<p class="text-slate-400 text-center col-span-full">لا توجد نتائج</p>';
+}
+
+function searchDictionary(term) {
+    renderDictionary(term);
+}
+
+// ==================== Stats Functions ====================
+function updateStats() {
+    // Reset daily count if new day
+    const today = new Date().toDateString();
+    if (appStats.lastDate !== today) {
+        appStats.todayTranslations = 0;
+        appStats.lastDate = today;
+    }
+    
+    // Update time
+    const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+    appStats.totalTime = elapsedMinutes;
+    
+    localStorage.setItem('appStats', JSON.stringify(appStats));
+    
+    // Update UI
+    document.getElementById('statWords').textContent = appStats.totalWords.toLocaleString();
+    document.getElementById('statFiles').textContent = appStats.totalFiles;
+    document.getElementById('statTime').textContent = appStats.totalTime;
+    document.getElementById('statToday').textContent = appStats.todayTranslations;
+}
+
+// ==================== Utility Functions ====================
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (show) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    } else {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+}
+
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.add('active');
+    
+    if (modalId === 'historyModal') {
+        loadHistory();
+    } else if (modalId === 'dictionaryModal') {
+        renderDictionary();
+    } else if (modalId === 'statsModal') {
+        updateStats();
+    }
+}
+
+function hideModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+function updateWordCount() {
+    const text = document.getElementById('inputText').value;
+    const count = text.trim() ? text.trim().split(/\s+/).length : 0;
+    document.getElementById('wordCount').textContent = `${count} كلمة`;
+}
+
+function clearInput() {
+    document.getElementById('inputText').value = '';
+    document.getElementById('wordCount').textContent = '0 كلمة';
+    uploadedFiles = [];
+    document.getElementById('fileList').innerHTML = '';
+}
+
+function copyTranslation() {
+    if (!currentTranslation) {
+        showNotification('لا يوجد نص للنسخ', 'warning');
+        return;
+    }
+    
+    navigator.clipboard.writeText(currentTranslation).then(() => {
+        showNotification('تم النسخ', 'success');
+    }).catch(() => {
+        showNotification('فشل النسخ', 'error');
+    });
+}
+
+// Close modals on outside click
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('active');
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+            case 'Enter':
+                e.preventDefault();
+                translateContent();
+                break;
+            case 'c':
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    copyTranslation();
                 }
-            });
-        });
-        
-        if (suggestions.length > 0) {
-            this.autocompleteDropdown.innerHTML = suggestions.slice(0, 5).map(suggestion => `
-                <div class="autocomplete-item px-4 py-2 text-white" onclick="app.selectAutocomplete('${suggestion}')">
-                    ${suggestion}
-                </div>
-            `).join('');
-            this.autocompleteDropdown.classList.remove('hidden');
-        } else {
-            this.autocompleteDropdown.classList.add('hidden');
-        }
-    }
-
-    selectAutocomplete(suggestion) {
-        const words = this.sourceText.value.split(/\s+/);
-        words.pop();
-        words.push(suggestion);
-        this.sourceText.value = words.join(' ') + ' ';
-        this.autocompleteDropdown.classList.add('hidden');
-        this.sourceText.focus();
-    }
-
-    // Voice Synthesis
-    speakTranslation() {
-        const text = this.translationOutput.innerText;
-        if (!text || text.includes('ستظهر الترجمة العلمية هنا')) {
-            this.showNotification('لا يوجد نص للنطق', 'warning');
-            return;
-        }
-        
-        if (this.speechSynthesis.speaking) {
-            this.speechSynthesis.cancel();
-            this.voiceBtn.classList.remove('playing');
-            return;
-        }
-        
-        this.speechUtterance = new SpeechSynthesisUtterance(text);
-        this.speechUtterance.lang = 'ar-SA';
-        this.speechUtterance.rate = 0.9;
-        this.speechUtterance.pitch = 1;
-        
-        this.speechUtterance.onstart = () => {
-            this.voiceBtn.classList.add('playing');
-        };
-        
-        this.speechUtterance.onend = () => {
-            this.voiceBtn.classList.remove('playing');
-        };
-        
-        this.speechSynthesis.speak(this.speechUtterance);
-    }
-
-    // Export Functions
-    exportTranslation(format) {
-        const text = this.translationOutput.innerText;
-        if (!text || text.includes('ستظهر الترجمة العلمية هنا')) {
-            this.showNotification('لا يوجد نص للتصدير', 'warning');
-            return;
-        }
-        
-        const timestamp = new Date().getTime();
-        
-        switch(format) {
-            case 'txt':
-                this.downloadFile(text, `ترجمة_طبية_${timestamp}.txt`, 'text/plain');
-                break;
-            case 'pdf':
-                this.exportToPDF(text, timestamp);
-                break;
-            case 'docx':
-                this.exportToWord(text, timestamp);
-                break;
-            case 'xlsx':
-                this.exportToExcel(text, timestamp);
                 break;
         }
-        
-        this.exportMenu.classList.add('hidden');
     }
+});
 
-    exportToPDF(text, timestamp) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.setFont('Arial');
-        doc.text(text, 10, 10);
-        doc.save(`ترجمة_طبية_${timestamp}.pdf`);
-        this.showNotification('تم تصدير PDF', 'success');
-    }
-
-    exportToWord(text, timestamp) {
-        const blob = new Blob(['<html><head><meta charset="utf-8"></head><body>' + text.replace(/\n/g, '<br>') + '</body></html>'], {
-            type: 'application/msword'
-        });
-        this.downloadFile(blob, `ترجمة_طبية_${timestamp}.doc`, 'application/msword');
-        this.showNotification('تم تصدير Word', 'success');
-    }
-
-    exportToExcel(text, timestamp) {
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet([['الترجمة الطبية'], [text]]);
-        XLSX.utils.book_append_sheet(wb, ws, 'Translation');
-        XLSX.writeFile(wb, `ترجمة_طبية_${timestamp}.xlsx`);
-        this.showNotification('تم تصدير Excel', 'success');
-    }
-
-    downloadFile(content, filename, type) {
-        const blob = content instanceof Blob ? content : new Blob([content], { type });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // Stats Management
-    updateStats() {
-        // Reset daily count if new day
-        const today = new Date().toDateString();
-        if (this.stats.lastDate !== today) {
-            this.stats.todayTranslations = 0;
-            this.stats.lastDate = today;
-        }
-        
-        // Update time
-        const elapsedMinutes = Math.floor((Date.now() - this.startTime) / 60000);
-        this.stats.totalTime += elapsedMinutes;
-        
-        // Save to localStorage
-        localStorage.setItem('stats', JSON.stringify(this.stats));
-        
-        // Update UI
-        document.getElementById('totalWords').textContent = this.stats.totalWords.toLocaleString();
-        document.getElementById('totalFiles').textContent = this.stats.totalFiles;
-        document.getElementById('totalTime').textContent = this.stats.totalTime;
-        document.getElementById('todayTranslations').textContent = this.stats.todayTranslations;
-    }
-
-    showStats() {
-        this.updateStats();
-        
-        // Update language stats
-        const langStats = document.getElementById('languageStats');
-        const languages = Object.entries(this.stats.languageUsage)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-        
-        if (languages.length > 0) {
-            langStats.innerHTML = languages.map(([lang, count]) => `
-                <div class="flex items-center justify-between p-2 bg-slate-700/50 rounded">
-                    <span class="text-slate-300">${lang}</span>
-                    <span class="text-sky-400">${count} ترجمة</span>
-                </div>
-            `).join('');
-        } else {
-            langStats.innerHTML = '<p class="text-slate-400 text-center">لا توجد إحصائيات بعد</p>';
-        }
-        
-        this.statsModal.classList.remove('hidden');
-        this.statsModal.classList.add('flex');
-    }
-
-    // History Management
-    addToHistory(original, translated) {
-        const historyItem = {
-            id: Date.now(),
-            original: original.substring(0, 100) + (original.length > 100 ? '...' : ''),
-            translated: translated.substring(0, 100) + (translated.length > 100 ? '...' : ''),
-            date: new Date().toLocaleString('ar-SA'),
-            fullOriginal: original,
-            fullTranslated: translated
-        };
-        
-        this.translationHistory.unshift(historyItem);
-        if (this.translationHistory.length > 50) {
-            this.translationHistory.pop();
-        }
-        
-        localStorage.setItem('translationHistory', JSON.stringify(this.translationHistory));
-        this.stats.todayTranslations++;
-        this.updateStats();
-    }
-
-    showHistory() {
-        const historyList = document.getElementById('historyList');
-        
-        if (this.translationHistory.length === 0) {
-            historyList.innerHTML = '<p class="text-slate-400 text-center py-8">لا توجد ترجمات سابقة</p>';
-        } else {
-            historyList.innerHTML = this.translationHistory.map(item => `
-                <div class="history-item rounded-lg p-4 cursor-pointer" onclick="app.loadHistoryItem(${item.id})">
-                    <div class="flex items-center justify-between mb-2">
+// Initialize
+updateStats();
+-2">
                         <span class="text-slate-400 text-xs">${item.date}</span>
                         <button onclick="event.stopPropagation(); app.deleteHistoryItem(${item.id})" class="text-red-400 hover:text-red-300">
                             <i class="fas fa-trash text-xs"></i>
